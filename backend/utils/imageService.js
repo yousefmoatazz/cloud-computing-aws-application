@@ -1,10 +1,11 @@
+const { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { s3 } = require('../config/aws');
 const { v4: uuidv4 } = require('uuid');
 
 const S3_BUCKET = process.env.S3_BUCKET_NAME;
 
 const ImageService = {
-  // Upload image to S3
   async uploadImage(file, itemId) {
     if (!file) {
       throw new Error('No file provided');
@@ -17,13 +18,13 @@ const ImageService = {
       Key: fileName,
       Body: file.buffer,
       ContentType: file.mimetype,
-      ACL: 'public-read',
     };
 
     try {
-      const result = await s3.upload(params).promise();
+      await s3.send(new PutObjectCommand(params));
+      const url = `https://${S3_BUCKET}.s3.amazonaws.com/${fileName}`;
       return {
-        url: result.Location,
+        url,
         key: fileName,
         timestamp: new Date().toISOString(),
       };
@@ -33,7 +34,6 @@ const ImageService = {
     }
   },
 
-  // Delete image from S3
   async deleteImage(imageKey) {
     const params = {
       Bucket: S3_BUCKET,
@@ -41,7 +41,7 @@ const ImageService = {
     };
 
     try {
-      await s3.deleteObject(params).promise();
+      await s3.send(new DeleteObjectCommand(params));
       return { success: true, key: imageKey };
     } catch (error) {
       console.error('Error deleting from S3:', error);
@@ -49,16 +49,14 @@ const ImageService = {
     }
   },
 
-  // Get image from S3
   async getImageUrl(imageKey) {
-    const params = {
+    const command = new GetObjectCommand({
       Bucket: S3_BUCKET,
       Key: imageKey,
-      Expires: 3600, // 1 hour
-    };
+    });
 
     try {
-      const url = s3.getSignedUrl('getObject', params);
+      const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
       return url;
     } catch (error) {
       console.error('Error generating signed URL:', error);

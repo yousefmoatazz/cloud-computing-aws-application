@@ -5,18 +5,39 @@ import '../styles/ItemList.css';
 function ItemList({ items, onItemUpdated }) {
   const [loading, setLoading] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
 
   const handleDelete = async (itemId) => {
-    if (!window.confirm('Are you sure you want to delete this item?')) {
-      return;
-    }
-
+    if (!window.confirm('Are you sure you want to delete this item?')) return;
     try {
       setLoading(itemId);
       await deleteItem(itemId);
       onItemUpdated();
     } catch (error) {
       console.error('Error deleting item:', error);
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleEditClick = (item) => {
+    setEditingId(item.id);
+    setEditData({ title: item.title, description: item.description, price: item.price });
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditSave = async (itemId) => {
+    try {
+      setLoading(itemId);
+      await updateItem(itemId, editData);
+      setEditingId(null);
+      onItemUpdated();
+    } catch (error) {
+      console.error('Error updating item:', error);
     } finally {
       setLoading(null);
     }
@@ -33,19 +54,54 @@ function ItemList({ items, onItemUpdated }) {
               </div>
             )}
             <div className="item-content">
-              <h3>{item.title}</h3>
-              <p>{item.description}</p>
-              <div className="item-price">${parseFloat(item.price).toFixed(2)}</div>
-              <div className="item-actions">
-                <button className="btn-edit">Edit</button>
-                <button
-                  className="btn-delete"
-                  onClick={() => handleDelete(item.id)}
-                  disabled={loading === item.id}
-                >
-                  {loading === item.id ? 'Deleting...' : 'Delete'}
-                </button>
-              </div>
+              {editingId === item.id ? (
+                <>
+                  <input
+                    type="text"
+                    name="title"
+                    value={editData.title}
+                    onChange={handleEditChange}
+                    placeholder="Title"
+                  />
+                  <textarea
+                    name="description"
+                    value={editData.description}
+                    onChange={handleEditChange}
+                    placeholder="Description"
+                  />
+                  <input
+                    type="number"
+                    name="price"
+                    value={editData.price}
+                    onChange={handleEditChange}
+                    placeholder="Price"
+                  />
+                  <div className="item-actions">
+                    <button className="btn-save" onClick={() => handleEditSave(item.id)} disabled={loading === item.id}>
+                      {loading === item.id ? 'Saving...' : 'Save'}
+                    </button>
+                    <button className="btn-cancel" onClick={() => setEditingId(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3>{item.title}</h3>
+                  <p>{item.description}</p>
+                  <div className="item-price">${parseFloat(item.price).toFixed(2)}</div>
+                  <div className="item-actions">
+                    <button className="btn-edit" onClick={() => handleEditClick(item)}>Edit</button>
+                    <button
+                      className="btn-delete"
+                      onClick={() => handleDelete(item.id)}
+                      disabled={loading === item.id}
+                    >
+                      {loading === item.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ))
